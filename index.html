@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Crack the Code</title>
+<style>
+:root{--bg:#1a1833;--card:#222056;--card2:#3d3a89;--ink:#fff8e7;--dim:#c9c6f5;--sun:#ffce2e;--mint:#4fe3c1;--coral:#ff7a7a;color-scheme:dark}
+*{box-sizing:border-box}
+html{background:var(--bg)}
+body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.5 "Trebuchet MS","Avenir Next",system-ui,sans-serif}
+main{max-width:640px;margin:0 auto;padding:28px 16px 48px}
+h1{font-size:clamp(2rem,8vw,3rem);line-height:1.05;margin:0 0 8px;letter-spacing:-.02em}
+.sub{margin:0 0 22px;color:var(--dim)}
+.secret{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 20px}
+.ch{width:clamp(30px,10vw,46px);height:clamp(42px,12vw,56px);display:flex;align-items:flex-end;justify-content:center;border-bottom:4px solid var(--sun);font:700 clamp(1.5rem,7vw,2.2rem)/1.2 ui-monospace,"Courier New",monospace;color:var(--sun)}
+.ch.pop{animation:pop .5s ease}
+@keyframes pop{30%{transform:translateY(-10px) scale(1.3)}}
+.final{display:flex;gap:8px}
+input{flex:1;min-width:0;font:inherit;font-size:16px;padding:12px 14px;border-radius:12px;border:2px solid var(--card2);background:#16154a;color:var(--ink)}
+input::placeholder{color:#8f8cd0}
+button{font:inherit;font-weight:700;cursor:pointer;border:0;border-radius:12px;padding:12px 16px;background:var(--sun);color:#1f1d5c}
+button:hover{filter:brightness(1.08)}
+:focus-visible{outline:3px solid var(--mint);outline-offset:2px}
+.note{min-height:1.5em;margin:8px 0 0;color:var(--mint);font-weight:700}
+.warn{background:var(--coral);color:#2a0d0d;padding:8px 12px;border-radius:10px;margin:0 0 16px;font-weight:700}
+#win{background:var(--mint);color:#0c2b25;border-radius:16px;padding:18px 20px;margin:20px 0 0}
+#win h2{margin:0 0 4px;font-size:1.5rem}
+#win p{margin:0}
+.card{background:var(--card);border-radius:16px;padding:18px;margin-top:16px;border-left:6px solid var(--card2)}
+.card.done{border-left-color:var(--mint);opacity:.9}
+.card.shake{animation:shake .35s}
+@keyframes shake{25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+.head{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.card h2{margin:0;font-size:1.1rem}
+.badge{background:var(--mint);color:#0c2b25;font-weight:700;border-radius:99px;padding:2px 12px;font-size:.9rem}
+.q{margin:8px 0 12px}
+.show{font:700 1.3rem/1.4 ui-monospace,"Courier New",monospace;background:#16154a;border-radius:10px;padding:10px 14px;margin:0 0 12px;overflow-wrap:anywhere;color:var(--sun)}
+.row{display:flex;gap:8px}
+.choices{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.choice{background:var(--card2);color:var(--ink);text-align:left;font-weight:400}
+.msg{min-height:1.4em;margin:8px 0 0;color:var(--coral);font-weight:700}
+.hint{background:none;color:var(--dim);padding:4px 0;text-decoration:underline;font-weight:400}
+.hinttxt{margin:4px 0 0;color:var(--dim)}
+.ok{margin:0;color:var(--mint);font-weight:700}
+footer{margin-top:28px;text-align:center}
+footer button{background:none;color:var(--dim);font-weight:400;text-decoration:underline}
+@media (prefers-reduced-motion:reduce){.ch.pop,.card.shake{animation:none}}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Crack the code</h1>
+    <p class="sub">Solve each puzzle to reveal one letter of the secret password. Think you know it already? Type it in!</p>
+    <div id="dev"></div>
+    <div id="secret" class="secret" aria-label="Secret password"></div>
+    <div class="final">
+      <input id="pw" placeholder="Secret password" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="go">
+      <button id="pwBtn">Unlock</button>
+    </div>
+    <p id="pwMsg" class="note"></p>
+  </header>
+  <section id="win" hidden></section>
+  <section id="list"></section>
+  <footer><button id="reset">Start over</button></footer>
+</main>
+
+<script>
+/* ============ EDIT HERE ============
+   - secret: the password (letters/numbers only). Puzzle number 1 reveals letter 1, puzzle 2 reveals letter 2, ...
+     so you need exactly as many puzzles as letters.
+   - Puzzle types:  choice  -> has "choices" and one "answer" (text must match a choice)
+                    text    -> typed answer; "answer" can be a list of accepted answers
+   - Optional: "show" = a code/cipher displayed in a box, "hint" = hidden until clicked.
+   - Company puzzles are marked TODO. */
+const CONFIG = {
+  secret: "FIREWALL",
+  winTitle: "Access granted! 🎉",
+  winText: "You cracked the code. Show this screen to your host to claim your prize!",
+  puzzles: [
+    { title: "Odd one out", q: "Which of these is NOT a web browser?",
+      choices: ["Chrome", "Firefox", "Excel", "Safari"], answer: "Excel" },
+
+    { title: "Finish the phrase", q: "WWW stands for World Wide ...?",
+      answer: ["web"], hint: "Think of what a spider makes." },
+
+    { title: "Binary decoder", q: "Computers speak in 1s and 0s. Each group of 8 is one letter. What word is this?",
+      show: "01000011 01000001 01010100", answer: ["cat"],
+      hint: "01000001 is the letter A. The next letter up is B, then C..." },
+
+    { title: "Secret agent cipher", q: "Every letter was moved one step FORWARD in the alphabet (A became B). Move each one back to decode it. Hint: it's what programmers write.",
+      show: "DPEF", answer: ["code"], hint: "D goes back to C. Now do the rest!" },
+
+    { title: "TODO: company question 1", q: "TODO: In what year was our company founded?",
+      answer: ["2000"] },
+
+    { title: "Mirror mirror", q: "This word is written backwards. Read it the right way round. (Never share it with anyone!)",
+      show: "drowssap", answer: ["password"] },
+
+    { title: "TODO: company question 2", q: "TODO: What is our company's mascot / main product / city?",
+      choices: ["Option A", "Option B", "Option C"], answer: "Option A" },
+
+    { title: "Password power", q: "Which password would be the hardest for a hacker to guess?",
+      choices: ["password123", "Fluffy", "T7#kq9!Lm2$x", "12345678"], answer: "T7#kq9!Lm2$x" }
+  ]
+};
+/* ============ END OF EDIT AREA ============ */
+
+const SECRET = CONFIG.secret.toUpperCase().replace(/[^A-Z0-9]/g, "");
+const KEY = "crackthecode:" + SECRET;
+let state = { solved: {}, won: false };
+try { const s = JSON.parse(localStorage.getItem(KEY)); if (s && s.solved) state = s; } catch (e) {}
+const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} };
+const $ = id => document.getElementById(id);
+const norm = s => String(s).toLowerCase().replace(/[^a-z0-9]/g, "");
+const h = (tag, cls, txt) => { const e = document.createElement(tag); if (cls) e.className = cls; if (txt != null) e.textContent = txt; return e; };
+
+function renderSecret(popIdx) {
+  const box = $("secret"); box.replaceChildren();
+  [...SECRET].forEach((c, i) => {
+    const s = h("span", "ch" + (i === popIdx ? " pop" : ""), state.solved[i] || state.won ? c : "");
+    box.append(s);
+  });
+}
+
+function checkAll() {
+  const all = SECRET.length > 0 && [...SECRET].every((_, i) => state.solved[i]);
+  $("pwMsg").textContent = all && !state.won ? "All letters found! Type the password above." : "";
+}
+
+function showWin() {
+  const w = $("win"); w.hidden = false; w.replaceChildren(h("h2", "", CONFIG.winTitle), h("p", "", CONFIG.winText));
+  $("pwMsg").textContent = "";
+}
+
+function card(i) {
+  const p = CONFIG.puzzles[i], el = h("article", "card");
+  const answers = [].concat(p.answer);
+  function draw() {
+    el.replaceChildren();
+    el.classList.toggle("done", !!state.solved[i]);
+    const head = h("div", "head");
+    head.append(h("h2", "", p.title || "Puzzle " + (i + 1)));
+    if (state.solved[i]) head.append(h("span", "badge", "Letter " + (i + 1) + ": " + SECRET[i]));
+    el.append(head, h("p", "q", p.q));
+    if (p.show) el.append(h("div", "show", p.show));
+    if (state.solved[i]) { el.append(h("p", "ok", "✔ Solved!")); return; }
+    const msg = h("p", "msg", "");
+    if (p.choices) {
+      const box = h("div", "choices");
+      p.choices.forEach(c => { const b = h("button", "choice", c); b.onclick = () => attempt(c); box.append(b); });
+      el.append(box);
+    } else {
+      const row = h("div", "row"), inp = h("input");
+      inp.placeholder = "Type your answer"; inp.autocomplete = "off"; inp.autocapitalize = "off";
+      inp.spellcheck = false; inp.enterKeyHint = "go";
+      const go = h("button", "", "Check");
+      go.onclick = () => attempt(inp.value);
+      inp.onkeydown = e => { if (e.key === "Enter") attempt(inp.value); };
+      row.append(inp, go); el.append(row);
+    }
+    el.append(msg);
+    if (p.hint) {
+      const hb = h("button", "hint", "Need a hint?");
+      hb.onclick = () => hb.replaceWith(h("p", "hinttxt", "💡 " + p.hint));
+      el.append(hb);
+    }
+    function attempt(v) {
+      if (!p.choices && !norm(v)) { msg.textContent = "Type something first!"; return; }
+      const good = p.choices ? v === answers[0] : answers.some(a => norm(a) === norm(v));
+      if (good) { state.solved[i] = true; save(); draw(); renderSecret(i); checkAll(); }
+      else {
+        msg.textContent = ["Not quite, try again!", "Close, but no. Have another go!", "Nope! Read the question again."][Math.floor(Math.random() * 3)];
+        el.classList.remove("shake"); void el.offsetWidth; el.classList.add("shake");
+      }
+    }
+  }
+  draw();
+  return el;
+}
+
+function build() {
+  $("list").replaceChildren(...CONFIG.puzzles.map((_, i) => card(i)));
+  renderSecret();
+  $("win").hidden = true;
+  if (state.won) showWin();
+  checkAll();
+}
+
+function tryPassword() {
+  const v = $("pw").value;
+  if (!norm(v)) return;
+  if (norm(v) === norm(SECRET)) { state.won = true; save(); renderSecret(); showWin(); }
+  else $("pwMsg").textContent = "That's not the password yet. Solve more puzzles for more letters!";
+}
+$("pwBtn").onclick = tryPassword;
+$("pw").onkeydown = e => { if (e.key === "Enter") tryPassword(); };
+$("reset").onclick = () => {
+  if (confirm("Start over? Your progress will be erased.")) { state = { solved: {}, won: false }; save(); $("pw").value = ""; build(); }
+};
+
+if (CONFIG.puzzles.length !== SECRET.length) {
+  const d = h("p", "warn", "Setup check: you have " + CONFIG.puzzles.length + " puzzles but the secret has " + SECRET.length + " letters. They need to match.");
+  $("dev").append(d);
+}
+build();
+</script>
+</body>
+</html>
